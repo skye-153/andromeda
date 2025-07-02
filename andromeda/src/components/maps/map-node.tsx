@@ -1,17 +1,24 @@
+// src/components/maps/map-node.tsx
+
 'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+// Import Node from the consolidated types file (which extends NodeData)
 import { type Node } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { CheckCircle2 } from 'lucide-react';
 
+// MapNodeProps now directly uses the Node type
 interface MapNodeProps {
-    node: Node;
+    node: Node; // Use the updated Node type
     onClick: (node: Node) => void;
-    onDrag: (nodeId: string, position: { x: number, y: number }) => void;
+    // onDrag prop signature is already correct
+    onDrag: (nodeIdentifier: string | undefined, newPosition: { x: number; y: number }) => void;
     isLinking: boolean;
 }
 
+// Update the component signature to use MapNodeProps
 export const MapNode = ({ node, onClick, onDrag, isLinking }: MapNodeProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const dragStartPos = React.useRef({ x: 0, y: 0 });
@@ -36,11 +43,14 @@ export const MapNode = ({ node, onClick, onDrag, isLinking }: MapNodeProps) => {
         if (!isDragging) return;
         const dx = e.clientX - dragStartPos.current.x;
         const dy = e.clientY - dragStartPos.current.y;
-        onDrag(node.id, {
+        // Pass the node identifier (_id or id) to onDrag
+        onDrag(node._id || node.id, {
             x: nodeStartPos.current.x + dx,
             y: nodeStartPos.current.y + dy,
         });
-    }, [isDragging, node.id, onDrag]);
+    // Include node._id and node.id in the dependency array
+    }, [isDragging, node._id, node.id, onDrag]);
+
 
     const handleMouseUp = useCallback((e: MouseEvent) => {
         if (isDragging) {
@@ -52,7 +62,7 @@ export const MapNode = ({ node, onClick, onDrag, isLinking }: MapNodeProps) => {
         }
         setIsDragging(false);
     }, [isDragging, node, onClick]);
-    
+
     useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleMouseMove);
@@ -63,7 +73,7 @@ export const MapNode = ({ node, onClick, onDrag, isLinking }: MapNodeProps) => {
             document.removeEventListener('mouseup', handleMouseUp);
         }
     }, [isDragging, handleMouseMove, handleMouseUp]);
-    
+
     const cursorStyle = isLinking ? 'crosshair' : (isDragging ? 'grabbing' : 'grab');
 
     return (
