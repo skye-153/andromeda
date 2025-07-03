@@ -1,4 +1,4 @@
-import { MapCanvas } from '@/components/maps/map-canvas';
+import MapCanvas from '@/components/maps/map-canvas';
 import { getMap } from '@/services/map-service';
 import { notFound } from 'next/navigation';
 

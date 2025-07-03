@@ -1,5 +1,7 @@
 // src/components/maps/node-editor.tsx
 
+// TODO: Integrate REST API calls for all data operations when running in browser/Next.js. Do not change any UI or styling.
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -101,7 +103,12 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ isOpen, onOpenChange, node, onU
 
   const handleFileClick = (filePath?: string) => {
     if (filePath) {
-      window.electron.ipcRenderer.send('open-local-file', filePath);
+      if (typeof window !== 'undefined' && window.electron) {
+        window.electron.ipcRenderer.send('open-local-file', filePath);
+      } else {
+        // TODO: Replace with REST API call or browser file open logic when not in Electron
+        console.error('Electron IPC not available. Use REST API or browser logic here.');
+      }
     } else {
       console.warn("File path is not available for this file yet.");
       // This might happen for newly added files that haven't been saved yet
@@ -116,7 +123,12 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ isOpen, onOpenChange, node, onU
     }));
     // If the file has a MongoDB ID, send an IPC message to delete it from the database
     if (fileId) {
-      window.electron.ipcRenderer.send('delete-file', fileId); // You'll need to implement this IPC handler in main.js
+      if (typeof window !== 'undefined' && window.electron) {
+        window.electron.ipcRenderer.send('delete-file', fileId); // You'll need to implement this IPC handler in main.js
+      } else {
+        // TODO: Replace with REST API call to delete file when not in Electron
+        console.error('Electron IPC not available. Use REST API here.');
+      }
     }
   };
 
@@ -139,11 +151,15 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ isOpen, onOpenChange, node, onU
       }
     };
 
-    window.electron.ipcRenderer.on('save-file-response', handleFileSaveResponse);
-
-    return () => {
-      window.electron.ipcRenderer.removeListener('save-file-response', handleFileSaveResponse);
-    };
+    if (typeof window !== 'undefined' && window.electron) {
+      window.electron.ipcRenderer.on('save-file-response', handleFileSaveResponse);
+      return () => {
+        window.electron.ipcRenderer.removeListener('save-file-response', handleFileSaveResponse);
+      };
+    } else {
+      // TODO: Add REST API response handling if needed
+      return () => {};
+    }
   }, [editedNode._id]); // Add editedNode._id as a dependency
 
   return (

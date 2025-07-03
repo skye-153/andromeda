@@ -33,6 +33,7 @@ export interface ConnectionData {
 // Define MapData interface - used for frontend representation and saving
 export interface MapData {
   _id?: string; // MongoDB ID
+  id?: string;
   name: string;
   nodes: NodeData[]; // Array of NodeData
   connections: ConnectionData[]; // Array of ConnectionData

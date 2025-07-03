@@ -1,5 +1,7 @@
 // src/components/maps/map-canvas.tsx
 
+// TODO: Integrate REST API calls for all data operations when running in browser/Next.js. Do not change any UI or styling.
+
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -18,10 +20,13 @@ declare global {
   }
 }
 
+interface MapCanvasProps {
+  map: MapData | null; // Define the map prop with the correct type
+}
 
-const MapCanvas = () => {
-  const [mapData, setMapData] = useState<MapData | null>(null);
-  const [loading, setLoading] = useState(true);
+
+const MapCanvas = ({ map }: MapCanvasProps) => {
+  const [mapData, setMapData] = useState<MapData | null>(map);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
   const [isEditorOpen, setEditorOpen] = useState(false);
@@ -35,7 +40,13 @@ const MapCanvas = () => {
   const saveMap = useCallback(() => {
     if (mapData) {
       setIsSaving(true);
-      window.electron.ipcRenderer.send('save-map-data', mapData);
+      // Access window.electron only on the client side
+      if (typeof window !== 'undefined' && window.electron) {
+        window.electron.ipcRenderer.send('save-map-data', mapData);
+      } else {
+        // TODO: Replace with REST API call to save map data when not in Electron
+        console.error('Electron IPC not available. Use REST API here.');
+      }
     }
   }, [mapData]);
 
@@ -100,7 +111,12 @@ const MapCanvas = () => {
     setSelectedNode(null);
     setEditorOpen(false);
     // Send IPC message to delete the node and its associated files/connections from the database
-    window.electron.ipcRenderer.send('delete-node', nodeIdentifier); // You'll need to implement this handler in main.js
+    if (typeof window !== 'undefined' && window.electron) {
+      window.electron.ipcRenderer.send('delete-node', nodeIdentifier); // You'll need to implement this handler in main.js
+    } else {
+      // TODO: Replace with REST API call to delete node when not in Electron
+      console.error('Electron IPC not available. Use REST API here.');
+    }
   };
 
 
@@ -140,102 +156,67 @@ const MapCanvas = () => {
     setMousePosition({ x: event.clientX, y: event.clientY });
   };
 
+  // Update mapData state when the map prop changes
+  useEffect(() => {
+    setMapData(map);
+  }, [map]);
+
+
   // Load maps and set up IPC listeners on component mount
   useEffect(() => {
-    // Listen for responses from the main process
-    window.electron.ipcRenderer.on('save-map-data-response', (event: any, response: any) => {
-      if (response.success) {
-        console.log('Map saved successfully:', response.map);
-        // Update your state with the saved map data (including MongoDB IDs)
-        setMapData(response.map);
-        toast({ title: "Map saved", description: `"${response.map.name}" has been saved locally.` });
-      } else {
-        console.error('Failed to save map:', response.error);
-        toast({ title: "Error saving map", description: response.error, variant: "destructive" });
-      }
-      setIsSaving(false);
-    });
+    // Ensure window.electron is available before setting up listeners
+    if (typeof window !== 'undefined' && window.electron) {
+      // Listen for responses from the main process
+      window.electron.ipcRenderer.on('save-map-data-response', (event: any, response: any) => {
+        if (response.success) {
+          console.log('Map saved successfully:', response.map);
+          // Update your state with the saved map data (including MongoDB IDs)
+          setMapData(response.map);
+          toast({ title: "Map saved", description: `"${response.map.name}" has been saved locally.` });
+        } else {
+          console.error('Failed to save map:', response.error);
+          toast({ title: "Error saving map", description: response.error, variant: "destructive" });
+        }
+        setIsSaving(false);
+      });
 
-    window.electron.ipcRenderer.on('load-maps-response', (event: any, response: any) => {
-      if (response.success && response.maps.length > 0) {
-        console.log('Loaded maps (basic info):', response.maps);
-        // For simplicity, load the first map found
-        const firstMap = response.maps[0];
-        // Send another IPC message to load the specific map with populated data
-        window.electron.ipcRenderer.send('load-map-by-id', firstMap._id);
-      } else if (response.success && response.maps.length === 0) {
-        console.log('No maps found. Starting with an empty map.');
-        // Initialize an empty map with a default name and a temporary frontend ID
-        setMapData({ name: 'New Map', nodes: [], connections: [] });
-        toast({ title: "No maps found", description: "Starting a new map." });
-        setLoading(false); // Stop loading as we have an empty map
-      } else if (!response.success) {
-        console.error('Failed to load maps:', response.error);
-        toast({ title: "Error loading maps", description: response.error, variant: "destructive" });
-        setLoading(false);
-      }
-    });
+      // Listen for file deletion responses (optional)
+      window.electron.ipcRenderer.on('delete-file-response', (event: any, response: any) => {
+        if (response.success) {
+          console.log('File deleted successfully:', response.fileId);
+          // You might want to update the node state to remove the deleted file reference
+        } else {
+          console.error('Failed to delete file:', response.error);
+          // Show an error message
+        }
+      });
 
-    window.electron.ipcRenderer.on('load-map-by-id-response', (event: any, response: any) => {
-      if (response.success && response.map) {
-        console.log('Loaded map by ID (populated):', response.map);
-        setMapData(response.map); // Update your map data state with populated data
-        toast({ title: "Map loaded", description: `"${response.map.name}" loaded.` });
-      } else if (!response.success) {
-        console.error('Failed to load map by ID:', response.error);
-        toast({ title: "Error loading map", description: response.error, variant: "destructive" });
-      }
-      setLoading(false); // Stop loading after attempting to load
-    });
-
-    // Listen for file deletion responses (optional)
-     window.electron.ipcRenderer.on('delete-file-response', (event: any, response: any) => {
-       if (response.success) {
-         console.log('File deleted successfully:', response.fileId);
-         // You might want to update the node state to remove the deleted file reference
-       } else {
-         console.error('Failed to delete file:', response.error);
-         // Show an error message
-       }
-     });
-
-     // Listen for node deletion responses (optional)
-     window.electron.ipcRenderer.on('delete-node-response', (event: any, response: any) => {
-       if (response.success) {
-         console.log('Node deleted successfully:', response.nodeId);
+      // Listen for node deletion responses (optional)
+      window.electron.ipcRenderer.on('delete-node-response', (event: any, response: any) => {
+        if (response.success) {
+          console.log('Node deleted successfully:', response.nodeId);
           // The state is already updated in the frontend, but this confirms backend deletion
-         toast({ title: "Node deleted", description: "Node removed successfully." });
-       } else {
-         console.error('Failed to delete node:', response.error);
-         toast({ title: "Error deleting node", description: response.error, variant: "destructive" });
-       }
-     });
+          toast({ title: "Node deleted", description: "Node removed successfully." });
+        } else {
+          console.error('Failed to delete node:', response.error);
+          toast({ title: "Error deleting node", description: response.error, variant: "destructive" });
+        }
+      });
 
-
-    // Clean up the listeners when the component unmounts
-    return () => {
-      window.electron.ipcRenderer.removeAllListeners('save-map-data-response');
-      window.electron.ipcRenderer.removeAllListeners('load-maps-response');
-      window.electron.ipcRenderer.removeAllListeners('load-map-by-id-response');
-      window.electron.ipcRenderer.removeAllListeners('delete-file-response');
-      window.electron.ipcRenderer.removeAllListeners('delete-node-response');
-    };
-  }, []); // Empty dependency array means this effect runs once on mount
-
-  // Load maps when the component mounts
-  useEffect(() => {
-    window.electron.ipcRenderer.send('load-maps');
-  }, []);
-
-
-  if (loading) {
-    return <div>Loading map...</div>;
-  }
+      // Clean up the listeners when the component unmounts
+      return () => {
+        window.electron.ipcRenderer.removeAllListeners('save-map-data-response');
+        window.electron.ipcRenderer.removeAllListeners('delete-file-response');
+        window.electron.ipcRenderer.removeAllListeners('delete-node-response');
+      };
+    }
+    // If window.electron is not available, return a cleanup function that does nothing
+    return () => {};
+  }, [toast]); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   // Ensure nodes and connections are arrays before mapping
   const nodesToRender = Array.isArray(mapData?.nodes) ? mapData?.nodes : [];
   const connectionsToRender = Array.isArray(mapData?.connections) ? mapData?.connections : [];
-
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-dot-zinc-700/[0.4] border rounded-lg flex-1" onMouseMove={handleMouseMove} onMouseLeave={() => setMousePosition(null)}>

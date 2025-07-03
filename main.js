@@ -4,10 +4,11 @@ const path = require('path');
 const fs = require('fs');
 
 // Import your Mongoose models
-const Map = require('./src/models/Map');
-const Node = require('./src/models/Node');
-const Connection = require('./src/models/Connection');
-const File = require('./src/models/File');
+const Map = require('./andromeda/src/models/Map.js');
+const Node = require('./andromeda/src/models/Node.js');
+const Connection = require('./andromeda/src/models/Connection.js');
+const File = require('./andromeda/src/models/File.js');
+
 
 // MongoDB connection URI
 const MONGODB_URI = 'mongodb://localhost:27017/andromeda';
